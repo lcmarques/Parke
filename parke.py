@@ -5,7 +5,6 @@
 import sys
 import os
 from format_columns import *
-import re
 import getopt
 
 
@@ -18,22 +17,62 @@ class attr10053:
 		self.level_l = level_l
 		self.txt_l = txt_l
 
+
+class parseParametersDef:
+
+	def parseDParam(self, filename):
+		try:
+			pf = parseHints()
+			statblock = pf.parseFile(filename)
+			result="";		
+			for i in statblock:
+				
+				result=i[i.find('PARAMETERS WITH DEFAULT VALUES')+1:i.find('Bug Fix Control Environment')]
+				print result		
+			return result
+
+		except:
+			print "E: Parke can't parse DATABASE DEFAULT PARAMETERS! :("
+
+
 class parseEP:
 
 	def parseEPBlocks(self, filename):
-		pf = parseHints()
-		statblock = pf.parseFile(filename)
-		sql_line='N/A'
-		result="";		
-		for i in statblock:
-			result_sql=i[i.find('sql='):i.find('----- Explain Plan Dump -----')].split('sql=')[1]
-			result=i[i.find('Plan Table\n============')+23:i.find('Predicate Information:')]
-			print 'SQL: ' + result_sql		
-			print result		
+		try:
+			pf = parseHints()
+			statblock = pf.parseFile(filename)
+			sql_line='N/A'
+			result="";		
+			for i in statblock:
+				result_sql=i[i.find('sql='):i.find('----- Explain Plan Dump -----')].split('sql=')[1]
+				result=i[i.find('Plan Table\n============')+23:i.find('Predicate Information:')]
+				print 'SQL: ' + result_sql		
+				print result
+
+		except:
+			print "E: Parke can't parse EXPLAIN PLAN! :("	
+
 		return result
 
 
 class parseHints:
+
+	#Check if valid is a 10053 trace. First line must start for "Trace File"
+	def isValidTraceFile(self, filename):
+		try:
+			f=open(filename, 'r')
+			lines=f.readlines()		
+			for l in lines:
+				if l.find('Trace file') >=0:
+					return lines
+					break
+				else:
+					return None
+
+		except IOError:
+			print "E: Parke can't open file: "+filename
+
+
 
 	#each entry on list contains an START and END SQLDUMP
 	def parseFile(self, filename):
@@ -42,25 +81,31 @@ class parseHints:
 		statblock=[]
 		found=0;
 
-		f=open(filename, 'r')
-		lines=f.readlines()
-		
-		for l in lines:						
-			if l.find('QUERY BLOCK SIGNATURE') >= 0:
-				found=1
-				text=""	
-			if l.find('END SQL Statement Dump') >=0:
-				found=2
-			if found == 1:
-				text = text + l
-			if found == 2 and text != '':				
-				statblock.append(text)
-				text=""				
+		#verify if it's a valid file here
+		lines=self.isValidTraceFile(filename)
+
+		if lines == None:
+			print "E: Invalid File Format for an 10053 Oracle Trace File"
+			sys.exit(2)
+		else:		
+			for l in lines:						
+				if l.find('QUERY BLOCK SIGNATURE') >= 0:
+					found=1 #this thing needs improvement!!!
+					text=""	
+				if l.find('END SQL Statement Dump') >=0:
+					found=2
+				if found == 1:
+					text = text + l
+				if found == 2 and text != '':				
+					statblock.append(text)
+					text=""
+				
 		return statblock
 
 
 	def parseHintBlocks(self, filename):
 		statblock = self.parseFile(filename)
+
 		sql_line='N/A'
 		hint_line=[]
 		iblocks=[]
@@ -99,8 +144,6 @@ class parseHints:
 
 	def parseHintUsage(self, filename):
 		hlf = []
-		bold = "\033[1m"
-		reset = "\033[0;0m"
 		#default value for variables
 		labels = ('Hint', 'Used', 'Error', 'Level',  'SQL FULL TEXT')
 		hlf = self.parseHintBlocks(filename)				
@@ -113,37 +156,51 @@ class parseHints:
 
 
 def main():
-
+	version="0.1"
 	try:
 		pf = parseHints()
 		pe = parseEP()
+		pp = parseParametersDef()
 
-		opts, args = getopt.getopt(sys.argv[1:], "hte", ["help", "hints", "explain"])
+		opts, args = getopt.getopt(sys.argv[1:], "htep", ["help", "hints", "explain", "dparameter"])
 
 	except getopt.error, msg:
 		print msg
 		print "Try --help for more information"
 		sys.exit(2)
 	#process all available options
-	for o in opts:
-		if o[0] in ("-h", "--help"):
-			print """Parke by Luis Marques [Oracle 10053 trace files parser] v0.1
+	if len(opts) == 0:
+		print "Nothing to do. Please use --help"
+
+	else:
+		for o in opts:
+			if o[0] in ("-h", "--help"):
+				print """Parke by Luis Marques [Oracle 10053 trace files parser] v0.1
 Usage: parke [OPTION] TRACEFILE
 Options are:	
   -t, --hints 	hints information regarding all statements
   -e, --explain	explain plan for all statements"""
-			sys.exit(0)
+				sys.exit(0)
 
-		if o[0] in ("-t", "--hints"):
-			print "Report Hints for [" + args[0]+"] ..."
-			pf.parseHintUsage(args[0]);
-			sys.exit(0);
+			if o[0] in ("-t", "--hints"):
+				print "Report Hints for [" + args[0]+"] ..."
+				pf.parseHintUsage(args[0])
+				sys.exit(0)
 
-		if o[0] in ("-e", "--explain"):
-			print "Report Explain for [" + args[0] +"] ..."
-			pe.parseEPBlocks(args[0]);
-			sys.exit(0);
 
+			if o[0] in ("-e", "--explain"):
+				print "Report Explain for [" + args[0] +"] ..."
+				pe.parseEPBlocks(args[0])
+				sys.exit(0)
+
+
+			if o[0] in ("-p", "--dparameter"):
+				print "Report Default Parameters for [" + args[0]+"] ..."
+				print "Not Yet Implemented. Sorry"				
+#				pp.parseDParam(args[0])
+				sys.exit(0)
+		
+	
 
 			
 if __name__ == "__main__":
