@@ -169,7 +169,7 @@ def main():
 		print "Try --help for more information"
 		sys.exit(2)
 	#process all available options
-	if len(opts) == 0:
+	if len(opts) < 2:
 		print "Nothing to do. Please use --help"
 
 	else:
@@ -181,6 +181,7 @@ Options are:
   -t, --hints 	hints information regarding all statements
   -e, --explain	explain plan for all statements"""
 				sys.exit(0)
+
 
 			if o[0] in ("-t", "--hints"):
 				print "Report Hints for [" + args[0]+"] ..."
@@ -199,6 +200,7 @@ Options are:
 				print "Not Yet Implemented. Sorry"				
 #				pp.parseDParam(args[0])
 				sys.exit(0)
+
 		
 	
 
