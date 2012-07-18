@@ -38,21 +38,27 @@ class parseParametersDef:
 class parseEP:
 
 	def parseEPBlocks(self, filename):
-		try:
+		#try:
 			pf = parseHints()
 			statblock = pf.parseFile(filename)
 			sql_line='N/A'
-			result="";		
+			result="";
+			permut="";
+
+			#implement permutations output
+
 			for i in statblock:
+				permut=i[i.find('Join order['):i.find('(newjo-stop')]
 				result_sql=i[i.find('sql='):i.find('----- Explain Plan Dump -----')].split('sql=')[1]
 				result=i[i.find('Plan Table\n============')+23:i.find('Predicate Information:')]
-				print 'SQL: ' + result_sql		
+				print 'SQL: ' + result_sql
+				print permut		
 				print result
 
-		except:
-			print "E: Parke can't parse EXPLAIN PLAN! :("	
+		#except:
+		#	print "E: Parke can't parse EXPLAIN PLAN! :("	
 
-		return result
+			return result
 
 
 class parseHints:
@@ -171,7 +177,7 @@ def main():
 	#process all available options
 	if len(opts) == 0:
 		print "Nothing to do. Please use --help"
-	if len(argv) < 2:
+	if len(args) < 1:
 		print "Nothing to do. Please use --help"
 
 	else:
