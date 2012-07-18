@@ -169,7 +169,9 @@ def main():
 		print "Try --help for more information"
 		sys.exit(2)
 	#process all available options
-	if len(opts) < 2:
+	if len(opts) == 0:
+		print "Nothing to do. Please use --help"
+	if len(argv) < 2:
 		print "Nothing to do. Please use --help"
 
 	else:
