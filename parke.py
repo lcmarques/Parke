@@ -6,59 +6,112 @@ import sys
 import os
 from format_columns import *
 import getopt
-
-
-class attr10053:
-	def __init__(self, sql_line, hint_line, err_l, used_l, level_l, txt_l):
-		self.sql_line=sql_line
-		self.hint_line=hint_line
-		self.err_l=err_l
-		self.used_l=used_l
-		self.level_l = level_l
-		self.txt_l = txt_l
-
-
-class parseParametersDef:
-
-	def parseDParam(self, filename):
-		try:
-			pf = parseHints()
-			statblock = pf.parseFile(filename)
-			result="";		
-			for i in statblock:
-				
-				result=i[i.find('PARAMETERS WITH DEFAULT VALUES')+1:i.find('Bug Fix Control Environment')]
-				print result		
-			return result
-
-		except:
-			print "E: Parke can't parse DATABASE DEFAULT PARAMETERS! :("
+import json
+import re
+from pprint import pprint
 
 
 class parseEP:
 
-	def parseEPBlocks(self, filename):
+	def parseEPBlocks(self, filename, outputfile):
 		#try:
 			pf = parseHints()
 			statblock = pf.parseFile(filename)
-			sql_line='N/A'
-			result="";
-			permut="";
-
-			#implement permutations output
-
+			f = open(outputfile, "w")
+		
+			array_json=[]
+			ahint=""
+			
 			for i in statblock:
-				permut=i[i.find('Join order['):i.find('(newjo-stop')]
-				result_sql=i[i.find('sql='):i.find('----- Explain Plan Dump -----')].split('sql=')[1]
+
+				jo=re.search('Join order.*', i)
+				sq=re.search('.*sql_id.*', i)
+				sqt=re.search('.*sql=.*', i)
+				pattern = re.compile('  atom_hint=.*', re.DOTALL)
+ 				atom = pattern.search(i)
+
+ 				if atom:
+ 					ahint=atom.group(0).split('\n')
+ 					#.split('atom_hint=')[1]	
+				if jo: 
+					permut=jo.group(0)
+				if sq:
+					sql_id=sq.group(0).split()[0].split('=')[1]
+				if sqt:
+					sql_text=sqt.group(0).split('=')[1]
+				#if ht:
+					
+				#	hintsl=ht.group(0)
+				#	print hintsl
+				#remove empty hints strings
+				ahint=[x[2:] for x in ahint if x]
+
 				result=i[i.find('Plan Table\n============')+23:i.find('Predicate Information:')]
-				print 'SQL: ' + result_sql
-				print permut		
-				print result
+				array_json.append({'sql_id': sql_id, 'sql_text': sql_text, 'permutations': permut, 'hints': ahint, 'xplan': result })
+
+			js=json.dumps(array_json, sort_keys=True, indent = 4)
+			f.write(js)
 
 		#except:
 		#	print "E: Parke can't parse EXPLAIN PLAN! :("	
-
+			f.close()
 			return result
+
+	def readEPjson(self, outputfile):
+		try:
+			json_data=open(outputfile)
+			data = json.load(json_data)
+
+			json_data.close()
+
+			return data
+
+		except:
+			print "E: Can't parse JSON file " + outputfile
+
+	def showEPresults(self, outputfile):
+
+		try: 
+			data = 	self.readEPjson(outputfile)
+
+			while(1):
+				try:
+					print "SQL Statements available:"
+					for i, a  in enumerate(data):
+
+						print str(i+1) + ") " +data[i]['sql_id']
+
+			
+					sqlid_op=raw_input("Please enter your option: ")
+					sqlid_op=int(sqlid_op)
+					hints= data[sqlid_op-1]["hints"]
+
+
+
+					print "SQL_ID: "+data[sqlid_op-1]["sql_id"]
+					print "SQL_TEXT: "+data[sqlid_op-1]["sql_text"]
+
+					print "PERMUTATIONS:\n"+data[sqlid_op-1]["permutations"] 
+					
+					# hints
+					if len(hints) > 0:
+						print "HINTS:"
+						for j,a in enumerate(hints):
+							print str(j+1)+")"+a
+
+					print "EXPLAIN PLAN:\n"+data[sqlid_op-1]["xplan"] 
+
+				except (IndexError, ValueError):
+					print "E: Not a valid option" 
+				except KeyboardInterrupt:
+					print "\nW: ^C detected! Exiting"
+					sys.exit(0)
+		except KeyboardInterrupt:
+			print "\nW: ^C detected! Exiting"
+			sys.exit(0)
+		#except:
+		#	print "E: Can't parse JSON file " + outputfile
+
 
 
 class parseHints:
@@ -109,107 +162,45 @@ class parseHints:
 		return statblock
 
 
-	def parseHintBlocks(self, filename):
-		statblock = self.parseFile(filename)
-
-		sql_line='N/A'
-		hint_line=[]
-		iblocks=[]
-		hl=[]
-
-		err_l='N/A'
-		used_l='N/A'
-		level_l='N/A'
-		txt_l='N/A'
-		hints=0
-
-		for i in statblock:
-			iblocks=i.split('\n') #transform every /n in list
-			for j in iblocks:
-
-				if j.find('sql=') >= 0:
-					sql_line=j.split('sql=')[1]												
-				if j.find('atom_hint=') >=0:
-					hints=1	
-					hint_line=j.split('atom_hint=')[1]									
-					# parse each category on hint line
-					err_l=hint_line.split('err=')[1][0]
-					used_l=hint_line.split('used=')[1][0]
-					level_l=hint_line.split('lvl=')[1][0]
-					txt_l=hint_line.split('txt=')[1].strip()[:-1]						
-			
-					x=attr10053(sql_line, hint_line, err_l, used_l, level_l, txt_l)
-					hl.append(x)
-					
-		
-			if hints==0:
-				x=attr10053(sql_line, 'N/A', 'N/A', 'N/A', 'N/A', 'N/A')
-				hl.append(x)
-					
-		return hl
-
-	def parseHintUsage(self, filename):
-		hlf = []
-		#default value for variables
-		labels = ('Hint', 'Used', 'Error', 'Level',  'SQL FULL TEXT')
-		hlf = self.parseHintBlocks(filename)				
-		data="";
-		for i in hlf:
-			sql=i.sql_line	
-			data =  data + '\n' + i.txt_l +',' + i.used_l + ','+i.err_l+','+i.level_l+','+sql
-			rows = [row.strip().split(',')  for row in data.splitlines()]
-    		print indent([labels]+rows, hasHeader=True)
-
-
 def main():
-	version="0.1"
+	version="0.2"
 	try:
 		pf = parseHints()
 		pe = parseEP()
-		pp = parseParametersDef()
+		#pp = parseParametersDef()
 
-		opts, args = getopt.getopt(sys.argv[1:], "htep", ["help", "hints", "explain", "dparameter"])
+		opts, args = getopt.getopt(sys.argv[1:], "he", ["help", "explain"])
 
 	except getopt.error, msg:
 		print msg
 		print "Try --help for more information"
 		sys.exit(2)
+
 	#process all available options
 	if len(opts) == 0:
-		print "Nothing to do. Please use --help"
-	if len(args) < 1:
-		print "Nothing to do. Please use --help"
-
+		print "Try --help for more information"
+	
 	else:
-		for o in opts:
-			if o[0] in ("-h", "--help"):
-				print """Parke by Luis Marques [Oracle 10053 trace files parser] v0.1
-Usage: parke [OPTION] TRACEFILE
+		try:
+			for o in opts:
+
+				if o[0] in ("-h", "--help"):
+					print """Parke [Oracle 10053 trace files parser] 
+Usage: parke [OPTION] TRACEFILE OUTPUTFILE
 Options are:	
-  -t, --hints 	hints information regarding all statements
-  -e, --explain	explain plan for all statements"""
-				sys.exit(0)
+  -e, --explain	explain plan and permutations for all statements"""
+			
+
+				if o[0] in ("-e", "--explain"):
+					print "Parsing " + args[0] +" => " + args[1]
+					pe.parseEPBlocks(args[0], args[1])
+					print "All Done! File " + args[1] + " created!"
+					pe.showEPresults(args[1])
+
+		except IndexError:
+			print "Try --help for more information"
 
 
-			if o[0] in ("-t", "--hints"):
-				print "Report Hints for [" + args[0]+"] ..."
-				pf.parseHintUsage(args[0])
-				sys.exit(0)
-
-
-			if o[0] in ("-e", "--explain"):
-				print "Report Explain for [" + args[0] +"] ..."
-				pe.parseEPBlocks(args[0])
-				sys.exit(0)
-
-
-			if o[0] in ("-p", "--dparameter"):
-				print "Report Default Parameters for [" + args[0]+"] ..."
-				print "Not Yet Implemented. Sorry"				
-#				pp.parseDParam(args[0])
-				sys.exit(0)
-
-		
 	
 
 			
