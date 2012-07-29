@@ -22,34 +22,42 @@ class parseEP:
 			array_json=[]
 			ahint=""
 			
+			#each i represents a trace statement
 			for i in statblock:
+				
 
-				jo=re.search('Join order.*', i)
+				jo=re.findall('Join order\[.*', i)
+				best=re.search('Best join order:.*', i)
 				sq=re.search('.*sql_id.*', i)
 				sqt=re.search('.*sql=.*', i)
 				pattern = re.compile('  atom_hint=.*', re.DOTALL)
+ 				
+ 				#multiline regex
  				atom = pattern.search(i)
+
 
  				if atom:
  					ahint=atom.group(0).split('\n')
  					#.split('atom_hint=')[1]	
-				if jo: 
-					permut=jo.group(0)
 				if sq:
 					sql_id=sq.group(0).split()[0].split('=')[1]
 				if sqt:
-					sql_text=sqt.group(0).split('=')[1]
-				#if ht:
-					
-				#	hintsl=ht.group(0)
-				#	print hintsl
+					sql_text=sqt.group(0).split('sql=')[1]
+				
+				if best:
+					best_permut=best.group(0).split('Best join order:')[1].strip()
+
+
 				#remove empty hints strings
 				ahint=[x[2:] for x in ahint if x]
 
-				result=i[i.find('Plan Table\n============')+23:i.find('Predicate Information:')]
-				array_json.append({'sql_id': sql_id, 'sql_text': sql_text, 'permutations': permut, 'hints': ahint, 'xplan': result })
+				permut=[x for x in jo if x]
 
-			js=json.dumps(array_json, sort_keys=True, indent = 4)
+
+				result=i[i.find('Plan Table\n============')+23:i.find('Predicate Information:')]
+				array_json.append({'sql_id': sql_id, 'sql_text': sql_text, 'permutations': permut, 'best_permutation': best_permut, 'hints': ahint, 'xplan': result })
+
+			js=json.dumps(array_json, indent = 2)
 			f.write(js)
 
 		#except:
@@ -76,7 +84,7 @@ class parseEP:
 
 			while(1):
 				try:
-					print "SQL Statements available:"
+					print "SQL Statements available (Ctrl+C exit):"
 					for i, a  in enumerate(data):
 
 						print str(i+1) + ") " +data[i]['sql_id']
@@ -84,22 +92,32 @@ class parseEP:
 			
 					sqlid_op=raw_input("Please enter your option: ")
 					sqlid_op=int(sqlid_op)
+
+					#get both arrays for hints and permutation
 					hints= data[sqlid_op-1]["hints"]
+					permut=data[sqlid_op-1]["permutations"]
+					best_p=data[sqlid_op-1]["best_permutation"]
 
 
 
-					print "SQL_ID: "+data[sqlid_op-1]["sql_id"]
-					print "SQL_TEXT: "+data[sqlid_op-1]["sql_text"]
+					print "Sql_id: "+data[sqlid_op-1]["sql_id"]
+					print "Sql_text: "+data[sqlid_op-1]["sql_text"]
 
-					print "PERMUTATIONS:\n"+data[sqlid_op-1]["permutations"] 
+
+					
+					print "Permutations:"
+					for j, a in enumerate(permut):
+						print str(j+1)+")"+a
+					
+					print "Best Join Order is: "+ data[sqlid_op-1]["best_permutation"]
 					
 					# hints
 					if len(hints) > 0:
-						print "HINTS:"
+						print "Hints:"
 						for j,a in enumerate(hints):
 							print str(j+1)+")"+a
 
-					print "EXPLAIN PLAN:\n"+data[sqlid_op-1]["xplan"] 
+					print "Explain Plan:\n"+data[sqlid_op-1]["xplan"] 
 
 				except (IndexError, ValueError):
 					print "E: Not a valid option" 
@@ -142,6 +160,7 @@ class parseHints:
 
 		#verify if it's a valid file here
 		lines=self.isValidTraceFile(filename)
+		
 
 		if lines == None:
 			print "E: Invalid File Format for an 10053 Oracle Trace File"
