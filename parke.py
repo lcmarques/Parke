@@ -14,7 +14,7 @@ from pprint import pprint
 class parseEP:
 
 	def parseEPBlocks(self, filename, outputfile):
-		#try:
+		try:
 			pf = parseHints()
 			statblock = pf.parseFile(filename)
 			f = open(outputfile, "w")
@@ -59,11 +59,13 @@ class parseEP:
 
 			js=json.dumps(array_json, indent = 2)
 			f.write(js)
-
-		#except:
-		#	print "E: Parke can't parse EXPLAIN PLAN! :("	
 			f.close()
 			return result
+
+		except:
+			print "E: Parke can't parse EXPLAIN PLAN! :("	
+		
+
 
 	def readEPjson(self, outputfile):
 		try:
