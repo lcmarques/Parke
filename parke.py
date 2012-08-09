@@ -4,7 +4,6 @@
 
 import sys
 import os
-from format_columns import *
 import getopt
 import json
 import re
@@ -13,8 +12,9 @@ from pprint import pprint
 
 class parseEP:
 
+
 	def parseEPBlocks(self, filename, outputfile):
-		try:
+		#try:
 			pf = parseHints()
 			statblock = pf.parseFile(filename)
 			f = open(outputfile, "w")
@@ -26,17 +26,26 @@ class parseEP:
 			for i in statblock:
 				
 
+				#REGEX POWER!
+
 				jo=re.findall('Join order\[.*', i)
 				best=re.search('Best join order:.*', i)
 				sq=re.search('.*sql_id.*', i)
 				sqt=re.search('.*sql=.*', i)
 				pattern = re.compile('  atom_hint=.*', re.DOTALL)
- 				
- 				#multiline regex
+				sofar = re.compile('Best so far'
+                 '.*?' + re.escape("***********************") ,
+                 re.DOTALL)
+ 			
  				atom = pattern.search(i)
-
+ 	
+ 				if sofar:
+ 					sofar_search=sofar.search(i)
+ 					bestsofar= sofar_search.group(0).split("Best so far: ")[1].split('\n')
+ 					bestsofar.pop(-1) # remove last element of the list corresponding *************
 
  				if atom:
+ 					
  					ahint=atom.group(0).split('\n')
  					#.split('atom_hint=')[1]	
 				if sq:
@@ -55,15 +64,16 @@ class parseEP:
 
 
 				result=i[i.find('Plan Table\n============')+23:i.find('Predicate Information:')]
-				array_json.append({'sql_id': sql_id, 'sql_text': sql_text, 'permutations': permut, 'best_permutation': best_permut, 'hints': ahint, 'xplan': result })
+				array_json.append({'sql_id': sql_id, 'sql_text': sql_text, 
+					'permutations': permut, 'best_permutation': best_permut, 'best_so_far': bestsofar, 'hints': ahint, 'xplan': result })
 
 			js=json.dumps(array_json, indent = 2)
 			f.write(js)
 			f.close()
 			return result
 
-		except:
-			print "E: Parke can't parse EXPLAIN PLAN! :("	
+		#except:
+		#	print "E: Parke can't parse EXPLAIN PLAN! :("	
 		
 
 
@@ -226,5 +236,8 @@ Options are:
 
 			
 if __name__ == "__main__":
-	main()		
+	if sys.version_info<(2,6,0):
+    		print "E: Parke needs at least Python 2.6! Exiting.."
+   	else:
+			main()		
 
