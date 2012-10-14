@@ -13,6 +13,25 @@ from pprint import pprint
 class parseEP:
 
 
+	def parseStaticalInfo(self, i):
+
+
+			#pf = parseHints()
+			#statblock = pf.parseFile(filename)
+			#f = open(outputfile, "w")
+					
+			#each i represents a trace statement
+			#for i in statblock:
+
+
+				
+				stats_str=stats.group(0)
+
+				print stats_str
+			#stats2=re.compile('Table:\s+(\w+)\s+Alias:(\w+).*#Rows:\s+(\d+)\s+#Blks:\s+(\d+)\s+AvgRowLen:\s+(\d+.\d+)\s+ChainCnt:\s+(\d+.\d+).*$', re.MULTILINE).search(stats_str)
+
+			#print stats2
+
 	def parseEPBlocks(self, filename, outputfile):
 		#try:
 			pf = parseHints()
@@ -36,8 +55,22 @@ class parseEP:
 				sofar = re.compile('Best so far'
                  '.*?' + re.escape("***********************") ,
                  re.DOTALL)
- 			
- 				atom = pattern.search(i)
+
+
+				atom = pattern.search(i)
+				# parse base statical information
+
+				stats = re.compile('Table Stats:'
+                	 '.*?' + "Access path analysis for\s\w+", 
+                 re.DOTALL).search(i)
+
+
+				#stats2=re.compile('Table:\s+(\w+)\s+Alias:(\w+).*#Rows:\s+(\d+)\s+#Blks:\s+(\d+)\s+AvgRowLen:\s+(\d+.\d+)\s+ChainCnt:\s+(\d+.\d+).*$', re.MULTILINE).search()
+				#print stats2 
+
+				 			
+ 				if stats:
+ 					table_stats = stats.group(0)
  	
  				if sofar:
  					sofar_search=sofar.search(i)
@@ -47,6 +80,7 @@ class parseEP:
  				if atom:
  					
  					ahint=atom.group(0).split('\n')
+ 					ahint=[x[2:] for x in ahint if x]
  					#.split('atom_hint=')[1]	
 				if sq:
 					sql_id=sq.group(0).split()[0].split('=')[1]
@@ -56,16 +90,14 @@ class parseEP:
 				if best:
 					best_permut=best.group(0).split('Best join order:')[1].strip()
 
-
-				#remove empty hints strings
-				ahint=[x[2:] for x in ahint if x]
-
+				
 				permut=[x for x in jo if x]
+
 
 
 				result=i[i.find('Plan Table\n============')+23:i.find('Predicate Information:')]
 				array_json.append({'sql_id': sql_id, 'sql_text': sql_text, 
-					'permutations': permut, 'best_permutation': best_permut, 'best_so_far': bestsofar, 'hints': ahint, 'xplan': result })
+					'permutations': permut, 'best_permutation': best_permut, 'best_so_far': bestsofar, 'hints': ahint, 'xplan': result , 'table_stats': table_stats })
 
 			js=json.dumps(array_json, indent = 2)
 			f.write(js)
@@ -92,28 +124,32 @@ class parseEP:
 	def showEPresults(self, outputfile):
 
 		try: 
+			
 			data = 	self.readEPjson(outputfile)
+			options_ext=['e', 't', 'i']
+			sqlid_op=-1
+			sql_id=-1
 
 			while(1):
 				try:
-					print "SQL Statements available (Ctrl+C exit):"
+
+					print "SQL Statements available: "
 					for i, a  in enumerate(data):
+						print str(i+1) + ") " +data[i]['sql_id']						
+					
 
-						print str(i+1) + ") " +data[i]['sql_id']
+					sqlid_op=raw_input("Please enter your option: ")		
 
-			
-					sqlid_op=raw_input("Please enter your option: ")
-					sqlid_op=int(sqlid_op)
-
-					#get both arrays for hints and permutation
-					hints= data[sqlid_op-1]["hints"]
-					permut=data[sqlid_op-1]["permutations"]
-					best_p=data[sqlid_op-1]["best_permutation"]
+					hints= data[int(sqlid_op)-1]["hints"]
+					permut=data[int(sqlid_op)-1]["permutations"]
+					best_p=data[int(sqlid_op)-1]["best_permutation"]
+					best_far=data[int(sqlid_op)-1]["best_so_far"]
+					sql_id=data[int(sqlid_op)-1]["sql_id"]
+					table_stats=data[int(sqlid_op)-1]["table_stats"]
 
 
-
-					print "Sql_id: "+data[sqlid_op-1]["sql_id"]
-					print "Sql_text: "+data[sqlid_op-1]["sql_text"]
+					print "Sql_id: "+sql_id
+					print "Sql_text: "+data[int(sqlid_op)-1]["sql_text"]
 
 
 					
@@ -121,18 +157,44 @@ class parseEP:
 					for j, a in enumerate(permut):
 						print str(j+1)+")"+a
 					
-					print "Best Join Order is: "+ data[sqlid_op-1]["best_permutation"]
+					print "Best Join Order is: "+ best_p
+
+					print "Best Join Order Cost: "
+						
+					for j, a in enumerate(best_far):
+						print "=> "+a.strip()
 					
-					# hints
+						# hints
 					if len(hints) > 0:
 						print "Hints:"
 						for j,a in enumerate(hints):
 							print str(j+1)+")"+a
 
-					print "Explain Plan:\n"+data[sqlid_op-1]["xplan"] 
+					print "\nExplain Plan for Join Order " + best_p +" is:\n"+data[int(sqlid_op)-1]["xplan"]
+					
+					if sql_id != -1:
 
-				except (IndexError, ValueError):
-					print "E: Not a valid option" 
+						print "Other options available for sql_id: "+sql_id
+						print "t) Table Stats"
+						print "i) Index Stats"
+						print "e) Exit"
+
+						ext_opt=raw_input("Please enter your option: ")
+
+						if ext_opt == 'e':
+							print "Exiting..."
+							sys.exit(0)
+
+						if ext_opt == 't':
+							print table_stats
+
+						if ext_opt == 'e':
+							print 'NOT IMPLEMENTED YET - SORRY'
+
+
+
+				except (ValueError, IndexError):
+					print "E: Not a valid option"
 				except KeyboardInterrupt:
 					print "\nW: ^C detected! Exiting"
 					sys.exit(0)
@@ -219,7 +281,7 @@ def main():
 					print """Parke [Oracle 10053 trace files parser] 
 Usage: parke [OPTION] TRACEFILE OUTPUTFILE
 Options are:	
-  -e, --explain	explain plan and permutations for all statements"""
+  -e, --explain	explain plan and permutations for all statements """
 			
 
 				if o[0] in ("-e", "--explain"):
@@ -227,6 +289,13 @@ Options are:
 					pe.parseEPBlocks(args[0], args[1])
 					print "All Done! File " + args[1] + " created!"
 					pe.showEPresults(args[1])
+
+				#if o[0] in ("-s", "--statical"):
+				#	print "Parsing " + args[0] +" => " + args[1]
+				#	print "Not Implemented Yet"
+				#	pe.parseStaticalInfo(args[0], args[1])
+				#	print "All Done! File " + args[1] + " created!"
+					#pe.showEPresults(args[1])
 
 		except IndexError:
 			print "Try --help for more information"

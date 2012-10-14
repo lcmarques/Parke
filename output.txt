@@ -1,0 +1,49 @@
+[
+  {
+    "table_stats": "Table Stats::\n  Table: DUAL  Alias: DUAL\n    #Rows: 1  #Blks:  1  AvgRowLen:  2.00\nAccess path analysis for DUAL", 
+    "sql_id": "16pnvhwt4z43d", 
+    "best_permutation": "1", 
+    "sql_text": "create table t1_abc as select 1 as N1 from dual", 
+    "best_so_far": [
+      " Table#: 0  cost: 2.0002  card: 1.0000  bytes: 0"
+    ], 
+    "permutations": [
+      "Join order[1]:  DUAL[DUAL]#0"
+    ], 
+    "xplan": "\n------------------------------------------+-----------------------------------+\n| Id  | Operation               | Name    | Rows  | Bytes | Cost  | Time      |\n------------------------------------------+-----------------------------------+\n| 0   | CREATE TABLE STATEMENT  |         |       |       |     3 |           |\n| 1   |  LOAD AS SELECT         |         |       |       |       |           |\n| 2   |   FAST DUAL             |         |     1 |       |     2 |  00:00:01 |\n------------------------------------------+-----------------------------------+\n", 
+    "hints": ""
+  }, 
+  {
+    "table_stats": "Table Stats::\n  Table: T1_ABC  Alias:  A  (NOT ANALYZED)\n    #Rows: 82  #Blks:  1  AvgRowLen:  100.00\nAccess path analysis for T1_ABC", 
+    "sql_id": "8s5205brwsh8f", 
+    "best_permutation": "1", 
+    "sql_text": "select /*+ full(a) SYS_DL_CURSOR */ N1 from t1_abc a", 
+    "best_so_far": [
+      " Table#: 0  cost: 2.0002  card: 1.0000  bytes: 13"
+    ], 
+    "permutations": [
+      "Join order[1]:  T1_ABC[A]#0"
+    ], 
+    "xplan": "\n-------------------------------------+-----------------------------------+\n| Id  | Operation          | Name    | Rows  | Bytes | Cost  | Time      |\n-------------------------------------+-----------------------------------+\n| 0   | SELECT STATEMENT   |         |       |       |     2 |           |\n| 1   |  TABLE ACCESS FULL | T1_ABC  |     1 |    13 |     2 |  00:00:01 |\n-------------------------------------+-----------------------------------+\n", 
+    "hints": [
+      "atom_hint=(@=0x8b1a4d30 err=0 resol=0 used=0 token=914 org=1 lvl=1 txt=SYS_DL_CURSOR ())", 
+      "atom_hint=(@=0x2ac9e8b91798 err=0 resol=1 used=1 token=448 org=1 lvl=3 txt=FULL (\"A\") )"
+    ]
+  }, 
+  {
+    "table_stats": "Table Stats::\n  Table: T1_ABC  Alias:  A  (NOT ANALYZED)\n    #Rows: 82  #Blks:  1  AvgRowLen:  100.00\nAccess path analysis for T1_ABC", 
+    "sql_id": "7jk4qa6brqcpr", 
+    "best_permutation": "1", 
+    "sql_text": "select /*+ index(a) */ N1 from t1_abc a", 
+    "best_so_far": [
+      " Table#: 0  cost: 2.0002  card: 1.0000  bytes: 13"
+    ], 
+    "permutations": [
+      "Join order[1]:  T1_ABC[A]#0"
+    ], 
+    "xplan": "\n-------------------------------------+-----------------------------------+\n| Id  | Operation          | Name    | Rows  | Bytes | Cost  | Time      |\n-------------------------------------+-----------------------------------+\n| 0   | SELECT STATEMENT   |         |       |       |     2 |           |\n| 1   |  TABLE ACCESS FULL | T1_ABC  |     1 |    13 |     2 |  00:00:01 |\n-------------------------------------+-----------------------------------+\n", 
+    "hints": [
+      "atom_hint=(@=0x2ac9e8b917a8 err=0 resol=1 used=1 token=83 org=1 lvl=3 txt=INDEX (\"A\") )"
+    ]
+  }
+]
